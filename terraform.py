@@ -180,11 +180,11 @@ def openstack_host(resource, module_name):
 
     try:
         attrs.update({
-            'ansible_ssh_host': raw_attrs['access_ip_v4'],
+            'ansible_host': raw_attrs['access_ip_v4'],
             'publicly_routable': True,
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', 'publicly_routable': False})
+        attrs.update({'ansible_host': '', 'publicly_routable': False})
 
     # attrs specific to microservices-infrastructure
     attrs.update({
@@ -341,11 +341,11 @@ def gce_host(resource, module_name):
 
     try:
         attrs.update({
-            'ansible_ssh_host': interfaces[0]['access_config'][0]['nat_ip'],
+            'ansible_host': interfaces[0]['access_config'][0]['nat_ip'],
             'publicly_routable': True,
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', 'publicly_routable': False})
+        attrs.update({'ansible_host': '', 'publicly_routable': False})
 
     # add groups based on attrs
     groups.extend('gce_image=' + disk['image'] for disk in attrs['disks'])
