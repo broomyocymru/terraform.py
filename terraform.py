@@ -236,9 +236,9 @@ def aws_host(resource, module_name):
         'vpc_security_group_ids': parse_list(raw_attrs,
                                              'vpc_security_group_ids'),
         # ansible-specific
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': raw_attrs.get('tags.sshUser', 'ubuntu'),
-        'ansible_ssh_host': _get_ignore_blank(raw_attrs, 'public_ip', raw_attrs['private_ip']),
+        'ansible_port': 22,
+        'ansible_user': raw_attrs.get('tags.sshUser', 'ubuntu'),
+        'ansible_host': _get_ignore_blank(raw_attrs, 'public_ip', raw_attrs['private_ip']),
     }
 
     # attrs specific to microservices-infrastructure
@@ -278,10 +278,10 @@ def digitalocean_host(resource, tfvars=None):
         'region': raw_attrs['region'],
         'size': raw_attrs['size'],
         # ansible
-        'ansible_ssh_port': 22,
+        'ansible_port': 22,
         # Could be passed from the command line via environment variable
-        'ansible_ssh_user': 'root',
-        'ansible_ssh_host': raw_attrs['ipv4_address'],
+        'ansible_user': 'root',
+        'ansible_host': raw_attrs['ipv4_address'],
     }
 
     # attrs specific to microservices-infrastructure
@@ -394,9 +394,9 @@ def azure_host(resource, module_name):
         'virtual_network': raw_attrs.get('virtual_network'),
         'endpoint': parse_attr_list(raw_attrs, 'endpoint'),
         # ansible
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': raw_attrs['username'],
-        'ansible_ssh_host': raw_attrs.get('vip_address', raw_attrs['ip_address']),
+        'ansible_port': 22,
+        'ansible_user': raw_attrs['username'],
+        'ansible_host': raw_attrs.get('vip_address', raw_attrs['ip_address']),
     }
 
     # attrs specific to microservices-infrastructure
