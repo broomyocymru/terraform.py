@@ -39,7 +39,7 @@ def test_name(ucs_resource, ucs_host):
 
 
 @pytest.mark.parametrize('attr,should', {
-    'ansible_ssh_host': '10.30.0.172',
+    'ansible_host': '10.30.0.172',
     'role': 'control',
     'consul_dc': 'root',
     'provider': 'ucs',

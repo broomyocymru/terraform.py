@@ -68,9 +68,9 @@ def test_name(triton_resource, triton_machine):
     'user_data': '',
     'user_script': '',
     # ansible
-    'ansible_ssh_host': '165.225.136.36',
-    'ansible_ssh_port': 22,
-    'ansible_ssh_user': 'root',
+    'ansible_host': '165.225.136.36',
+    'ansible_port': 22,
+    'ansible_user': 'root',
     # generic
     'public_ipv4': '165.225.136.36',
     'private_ipv4': '10.112.7.149',

@@ -87,9 +87,9 @@ def test_name(aws_resource, aws_host):
     'tenancy': 'default',
     'vpc_security_group_ids': ['sg-9c360cf8', 'sg-9d360cf9'],
     # ansible
-    'ansible_ssh_host': '52.7.74.115',
-    'ansible_ssh_port': 22,
-    'ansible_ssh_user': 'ec2-user',
+    'ansible_host': '52.7.74.115',
+    'ansible_port': 22,
+    'ansible_user': 'ec2-user',
     # mi
     'consul_dc': 'aws',
     # generic
@@ -106,7 +106,7 @@ def test_private_ip_default(aws_resource, aws_host):
     private_resource = deepcopy(aws_resource)
     private_resource["primary"]["attributes"]["public_ip"] = ""
     _, attrs, _ = aws_host(private_resource, 'module_name')
-    assert attrs['ansible_ssh_host'] == '10.0.152.191'
+    assert attrs['ansible_host'] == '10.0.152.191'
 
 
 @pytest.mark.parametrize(

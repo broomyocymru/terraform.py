@@ -44,9 +44,9 @@ def test_name(softlayer_resource, softlayer_host):
     'cpu': 1,
     'ssh_keys': ['23456'],
     # ansible
-    'ansible_ssh_host': '1.2.3.4',
-    'ansible_ssh_port': 22,
-    'ansible_ssh_user': 'root',
+    'ansible_host': '1.2.3.4',
+    'ansible_port': 22,
+    'ansible_user': 'root',
     # generic
     'public_ipv4': '1.2.3.4',
     'private_ipv4': '5.6.7.8',

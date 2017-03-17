@@ -176,9 +176,9 @@ def triton_machine(resource, module_name):
         'user_script': raw_attrs['user_script'],
 
         # ansible
-        'ansible_ssh_host': raw_attrs['primaryip'],
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': 'root',  # it's "root" on Triton by default
+        'ansible_host': raw_attrs['primaryip'],
+        'ansible_port': 22,
+        'ansible_user': 'root',  # it's "root" on Triton by default
 
         # generic
         'public_ipv4': raw_attrs['primaryip'],
@@ -236,9 +236,9 @@ def digitalocean_host(resource, tfvars=None):
         'ssh_keys': parse_list(raw_attrs, 'ssh_keys'),
         'status': raw_attrs['status'],
         # ansible
-        'ansible_ssh_host': raw_attrs['ipv4_address'],
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': 'root',  # it's always "root" on DO
+        'ansible_host': raw_attrs['ipv4_address'],
+        'ansible_port': 22,
+        'ansible_user': 'root',  # it's always "root" on DO
         # generic
         'public_ipv4': raw_attrs['ipv4_address'],
         'private_ipv4': raw_attrs.get('ipv4_address_private',
@@ -287,9 +287,9 @@ def softlayer_host(resource, module_name):
         'ssh_keys': parse_list(raw_attrs, 'ssh_keys'),
         'public_ipv4': raw_attrs['ipv4_address'],
         'private_ipv4': raw_attrs['ipv4_address_private'],
-        'ansible_ssh_host': raw_attrs['ipv4_address'],
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': 'root',
+        'ansible_host': raw_attrs['ipv4_address'],
+        'ansible_port': 22,
+        'ansible_user': 'root',
         'provider': 'softlayer',
     }
 
@@ -328,7 +328,8 @@ def openstack_host(resource, module_name):
         'region': raw_attrs.get('region', ''),
         'security_groups': parse_list(raw_attrs, 'security_groups'),
         # ansible
-        'ansible_ssh_port': 22,
+        'ansible_host': raw_attrs['access_ip_v4'],
+        'ansible_port': 22,
         # workaround for an OpenStack bug where hosts have a different domain
         # after they're restarted
         'host_domain': 'novalocal',
@@ -352,7 +353,7 @@ def openstack_host(resource, module_name):
 
     # attrs specific to Ansible
     if 'metadata.ssh_user' in raw_attrs:
-        attrs['ansible_ssh_user'] = raw_attrs['metadata.ssh_user']
+        attrs['ansible_user'] = raw_attrs['metadata.ssh_user']
 
     # attrs specific to Mantl
     attrs.update({
@@ -405,8 +406,8 @@ def aws_host(resource, module_name):
         'vpc_security_group_ids': parse_list(raw_attrs,
                                              'vpc_security_group_ids'),
         # ansible-specific
-        'ansible_ssh_port': 22,
-        'ansible_ssh_host': raw_attrs['public_ip'],
+        'ansible_port': 22,
+        'ansible_host': raw_attrs['public_ip'],
         # generic
         'public_ipv4': raw_attrs['public_ip'],
         'private_ipv4': raw_attrs['private_ip'],
@@ -415,9 +416,11 @@ def aws_host(resource, module_name):
 
     # attrs specific to Ansible
     if 'tags.sshUser' in raw_attrs:
-        attrs['ansible_ssh_user'] = raw_attrs['tags.sshUser']
+        attrs['ansible_user'] = raw_attrs['tags.sshUser']
+    if raw_attrs['public_ip'] == "":
+        attrs['ansible_host'] = raw_attrs['private_ip']
     if 'tags.sshPrivateIp' in raw_attrs:
-        attrs['ansible_ssh_host'] = raw_attrs['private_ip']
+        attrs['ansible_host'] = raw_attrs['private_ip']
 
     # attrs specific to Mantl
     attrs.update({
@@ -444,7 +447,7 @@ def aws_host(resource, module_name):
     return name, attrs, groups
 
 @parses('digitalocean_droplet')
-@calculate_mi_vars
+@calculate_mantl_vars
 def digitalocean_host(resource, tfvars=None):
 
     raw_attrs = resource['primary']['attributes']
@@ -452,15 +455,25 @@ def digitalocean_host(resource, tfvars=None):
 
     # general attrs
     attrs = {
+        'id': raw_attrs['id'],
         'name': raw_attrs['name'],
+        'ipv4_address': raw_attrs['ipv4_address'],
         'metadata': yaml.load(raw_attrs['user_data']),
         'region': raw_attrs['region'],
         'size': raw_attrs['size'],
+        'image': raw_attrs['image'],
+        'locked': parse_bool(raw_attrs['locked']),
+        'status': raw_attrs['status'],
+        'public_ipv4': raw_attrs['ipv4_address'],
+        'private_ipv4': raw_attrs.get('ipv4_address_private',
+                                      raw_attrs['ipv4_address']),
         # ansible
         'ansible_port': 22,
         # Could be passed from the command line via environment variable
         'ansible_user': 'root',
         'ansible_host': raw_attrs['ipv4_address'],
+        'provider': 'digitalocean',
+        'ssh_keys': parse_list(raw_attrs, 'ssh_keys'),
     }
 
     # attrs specific to microservices-infrastructure
@@ -468,6 +481,15 @@ def digitalocean_host(resource, tfvars=None):
         'consul_dc': _clean_dc(attrs['metadata'].get('dc', attrs['region'])),
         'role': attrs['metadata'].get('role', 'none')
     })
+
+    # add groups based on attrs
+    groups.append('do_image=' + attrs['image'])
+    groups.append('do_locked=%s' % attrs['locked'])
+    groups.append('do_region=' + attrs['region'])
+    groups.append('do_size=' + attrs['size'])
+    groups.append('do_status=' + attrs['status'])
+    groups.extend('do_metadata_%s=%s' % item
+                  for item in attrs['metadata'].items())
 
     # groups specific to microservices-infrastructure
     name = attrs.get('name')
@@ -508,13 +530,13 @@ def gce_host(resource, module_name):
         'tags': parse_list(raw_attrs, 'tags'),
         'zone': raw_attrs['zone'],
         # ansible
-        'ansible_ssh_port': 22,
+        'ansible_port': 22,
         'provider': 'gce',
     }
 
     # attrs specific to Ansible
     if 'metadata.ssh_user' in raw_attrs:
-        attrs['ansible_ssh_user'] = raw_attrs['metadata.ssh_user']
+        attrs['ansible_user'] = raw_attrs['metadata.ssh_user']
 
     # attrs specific to Mantl
     attrs.update({
@@ -525,7 +547,7 @@ def gce_host(resource, module_name):
 
     try:
         attrs.update({
-            'ansible_ssh_host': interfaces[0]['access_config'][0]['nat_ip'] or interfaces[0]['access_config'][0]['assigned_nat_ip'],
+            'ansible_host': interfaces[0]['access_config'][0]['nat_ip'] or interfaces[0]['access_config'][0]['assigned_nat_ip'],
             'public_ipv4': interfaces[0]['access_config'][0]['nat_ip'] or interfaces[0]['access_config'][0]['assigned_nat_ip'],
             'private_ipv4': interfaces[0]['address'],
             'publicly_routable': True,
@@ -554,7 +576,7 @@ def gce_host(resource, module_name):
     return name, attrs, groups
 
 @parses('azure_instance')
-@calculate_mi_vars
+@calculate_mantl_vars
 def azure_host(resource, module_name):
     name = resource['primary']['attributes']['name']
     raw_attrs = resource['primary']['attributes']
@@ -619,16 +641,16 @@ def vsphere_host(resource, module_name):
         'private_ipv4': ip_address,
         'public_ipv4': ip_address,
         'metadata': parse_dict(raw_attrs, 'custom_configuration_parameters'),
-        'ansible_ssh_port': 22,
+        'ansible_port': 22,
         'provider': 'vsphere',
     }
 
     try:
         attrs.update({
-            'ansible_ssh_host': ip_address,
+            'ansible_host': ip_address,
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', })
+        attrs.update({'ansible_host': '', })
 
     attrs.update({
         'consul_dc': _clean_dc(attrs['metadata'].get('consul_dc', module_name)),
@@ -638,7 +660,7 @@ def vsphere_host(resource, module_name):
 
     # attrs specific to Ansible
     if 'ssh_user' in attrs['metadata']:
-        attrs['ansible_ssh_user'] = attrs['metadata']['ssh_user']
+        attrs['ansible_user'] = attrs['metadata']['ssh_user']
 
     groups.append('role=' + attrs['role'])
     groups.append('dc=' + attrs['consul_dc'])
@@ -658,9 +680,9 @@ def azurerm_host(resource, module_name):
         'id': raw_attrs['id'],
         'name': raw_attrs['name'],
         # ansible
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': raw_attrs.get('tags.ssh_user', ''),
-        'ansible_ssh_host': raw_attrs.get('tags.ssh_ip', ''),
+        'ansible_port': 22,
+        'ansible_user': raw_attrs.get('tags.ssh_user', ''),
+        'ansible_host': raw_attrs.get('tags.ssh_ip', ''),
     }
 
     groups.append('role=' + raw_attrs.get('tags.role', ''))
@@ -694,9 +716,9 @@ def azure_host(resource, module_name):
         'virtual_network': raw_attrs['virtual_network'],
         'endpoint': parse_attr_list(raw_attrs, 'endpoint'),
         # ansible
-        'ansible_ssh_port': 22,
-        'ansible_ssh_user': raw_attrs['username'],
-        'ansible_ssh_host': raw_attrs['vip_address'],
+        'ansible_port': 22,
+        'ansible_user': raw_attrs['username'],
+        'ansible_host': raw_attrs['vip_address'],
     }
 
     # attrs specific to mantl
@@ -727,8 +749,8 @@ def clc_server(resource, module_name):
     md = parse_dict(raw_attrs, 'metadata')
     attrs = {
         'metadata': md,
-        'ansible_ssh_port': md.get('ssh_port', 22),
-        'ansible_ssh_user': md.get('ssh_user', 'root'),
+        'ansible_port': md.get('ssh_port', 22),
+        'ansible_user': md.get('ssh_user', 'root'),
         'provider': 'clc',
         'publicly_routable': False,
     }
@@ -737,12 +759,12 @@ def clc_server(resource, module_name):
         attrs.update({
             'public_ipv4': raw_attrs['public_ip_address'],
             'private_ipv4': raw_attrs['private_ip_address'],
-            'ansible_ssh_host': raw_attrs['public_ip_address'],
+            'ansible_host': raw_attrs['public_ip_address'],
             'publicly_routable': True,
         })
     except (KeyError, ValueError):
         attrs.update({
-            'ansible_ssh_host': raw_attrs['private_ip_address'],
+            'ansible_host': raw_attrs['private_ip_address'],
             'private_ipv4': raw_attrs['private_ip_address'],
         })
 
@@ -777,12 +799,12 @@ def ucs_host(resource, module_name):
 
     try:
         attrs.update({
-            'ansible_ssh_host': raw_attrs['vNIC.0.ip'],
+            'ansible_host': raw_attrs['vNIC.0.ip'],
             'public_ipv4': raw_attrs['vNIC.0.ip'],
             'private_ipv4': raw_attrs['vNIC.0.ip']
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', 'publicly_routable': False})
+        attrs.update({'ansible_host': '', 'publicly_routable': False})
 
     # add groups based on attrs
     groups.append('role=' + attrs['role']) #.get('role', 'none'))
@@ -819,7 +841,7 @@ def query_list(hosts):
 def query_hostfile(hosts):
     out = ['## begin hosts generated by terraform.py ##']
     out.extend(
-        '{}\t{}'.format(attrs['ansible_ssh_host'].ljust(16), name)
+        '{}\t{}'.format(attrs['ansible_host'].ljust(16), name)
         for name, attrs, _ in hosts
     )
 
