@@ -24,6 +24,7 @@ from functools import wraps
 import json
 import os
 import re
+import yaml
 
 VERSION = '0.3.0pre'
 
@@ -95,6 +96,16 @@ def calculate_mantl_vars(func):
         return name, attrs, groups
 
     return inner
+
+
+def _get_ignore_blank(obj, key, default=None):
+    """
+    Get a key in an object, but treat blank string as missing value.
+    """
+    v = obj.get(key, default)
+    if v == "":
+        return default
+    return v
 
 
 def _parse_prefix(source, prefix, sep='.'):
@@ -333,11 +344,11 @@ def openstack_host(resource, module_name):
 
     try:
         attrs.update({
-            'ansible_ssh_host': raw_attrs['access_ip_v4'],
+            'ansible_host': raw_attrs['access_ip_v4'],
             'publicly_routable': True,
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', 'publicly_routable': False})
+        attrs.update({'ansible_host': '', 'publicly_routable': False})
 
     # attrs specific to Ansible
     if 'metadata.ssh_user' in raw_attrs:
@@ -432,6 +443,41 @@ def aws_host(resource, module_name):
 
     return name, attrs, groups
 
+@parses('digitalocean_droplet')
+@calculate_mi_vars
+def digitalocean_host(resource, tfvars=None):
+
+    raw_attrs = resource['primary']['attributes']
+    groups = []
+
+    # general attrs
+    attrs = {
+        'name': raw_attrs['name'],
+        'metadata': yaml.load(raw_attrs['user_data']),
+        'region': raw_attrs['region'],
+        'size': raw_attrs['size'],
+        # ansible
+        'ansible_port': 22,
+        # Could be passed from the command line via environment variable
+        'ansible_user': 'root',
+        'ansible_host': raw_attrs['ipv4_address'],
+    }
+
+    # attrs specific to microservices-infrastructure
+    attrs.update({
+        'consul_dc': _clean_dc(attrs['metadata'].get('dc', attrs['region'])),
+        'role': attrs['metadata'].get('role', 'none')
+    })
+
+    # groups specific to microservices-infrastructure
+    name = attrs.get('name')
+
+    groups.append('region=' + attrs['region'])
+    groups.append('role=' + attrs['role'])
+    groups.append('dc=' + attrs['consul_dc'])
+
+    return name, attrs, groups
+
 
 @parses('google_compute_instance')
 @calculate_mantl_vars
@@ -485,7 +531,7 @@ def gce_host(resource, module_name):
             'publicly_routable': True,
         })
     except (KeyError, ValueError):
-        attrs.update({'ansible_ssh_host': '', 'publicly_routable': False})
+        attrs.update({'ansible_host': '', 'publicly_routable': False})
 
     # add groups based on attrs
     groups.extend('gce_image=' + disk['image'] for disk in attrs['disks'])
@@ -507,6 +553,55 @@ def gce_host(resource, module_name):
 
     return name, attrs, groups
 
+@parses('azure_instance')
+@calculate_mi_vars
+def azure_host(resource, module_name):
+    name = resource['primary']['attributes']['name']
+    raw_attrs = resource['primary']['attributes']
+
+    groups = []
+
+    attrs = {
+        'automatic_updates': raw_attrs['automatic_updates'],
+        'description': raw_attrs['description'],
+        'hosted_service_name': raw_attrs['hosted_service_name'],
+        'id': raw_attrs['id'],
+        'image': raw_attrs['image'],
+        'ip_address': raw_attrs['ip_address'],
+        'location': raw_attrs['location'],
+        'name': raw_attrs['name'],
+        'reverse_dns': raw_attrs['reverse_dns'],
+        'security_group': raw_attrs['security_group'],
+        'size': raw_attrs['size'],
+        'ssh_key_thumbprint': raw_attrs['ssh_key_thumbprint'],
+        'subnet': raw_attrs['subnet'],
+        'username': raw_attrs['username'],
+        'vip_address': raw_attrs.get('vip_address'),
+        'virtual_network': raw_attrs.get('virtual_network'),
+        'endpoint': parse_attr_list(raw_attrs, 'endpoint'),
+        # ansible
+        'ansible_port': 22,
+        'ansible_user': raw_attrs['username'],
+        'ansible_host': raw_attrs.get('vip_address', raw_attrs['ip_address']),
+    }
+
+    # attrs specific to microservices-infrastructure
+    attrs.update({
+        'consul_dc': attrs['location'].lower().replace(" ", "-"),
+        'role': attrs['description']
+    })
+
+    # groups specific to microservices-infrastructure
+    groups.extend(['azure_image=' + attrs['image'],
+                   'azure_location=' + attrs['location'].lower().replace(" ", "-"),
+                   'azure_username=' + attrs['username'],
+                   'azure_security_group=' + attrs['security_group']])
+
+    # groups specific to microservices-infrastructure
+    groups.append('role=' + attrs['role'])
+    groups.append('dc=' + attrs['consul_dc'])
+
+    return name, attrs, groups
 
 @parses('vsphere_virtual_machine')
 @calculate_mantl_vars
