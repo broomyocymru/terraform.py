@@ -679,13 +679,17 @@ def azurerm_host(resource, module_name):
     attrs = {
         'id': raw_attrs['id'],
         'name': raw_attrs['name'],
+        'os': raw_attrs.get('tags.os', ''),
         # ansible
-        'ansible_port': 22,
+        'ansible_port': raw_attrs.get('tags.remote_port', '22'),
         'ansible_user': raw_attrs.get('tags.ssh_user', ''),
         'ansible_host': raw_attrs.get('tags.ssh_ip', ''),
+        'ansible_connection': raw_attrs.get('tags.remote_connection', 'ssh'),
     }
 
     groups.append('role=' + raw_attrs.get('tags.role', ''))
+    groups.append('connection=' + attrs.get('ansible_connection'))
+    groups.append(attrs.get('ansible_connection') +'.' + raw_attrs.get('tags.role', ''))
 
     return name, attrs, groups
 

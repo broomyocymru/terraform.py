@@ -77,7 +77,7 @@ def test_name(azurerm_resource, azurerm_host):
 def test_attrs(azurerm_resource, azurerm_host, attr, should):
     _, attrs, _ = azurerm_host(azurerm_resource, 'ukwest')
     assert attr in attrs
-    assert attrs[attr] == should
+    assert attrs[attr] == str(should)
 
 
 @pytest.mark.parametrize('group', [
